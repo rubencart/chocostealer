@@ -1,4 +1,5 @@
 import os
+
 import dotenv
 
 # Load environment variables
@@ -41,10 +42,10 @@ DAYS = {
 #     "combi": 250.0,
 # }
 DAY_PRICES = {
-    # "day1": 200.0,
-    # "day2": 200.0, 
-    "day3": 107.0,
-    # "combi": 350.0,
+    "day1": 146.0,
+    "day2": 97.0, 
+    "day3": 97.0,
+    "combi": 251.0,
 }
 
 CAMPINGS = {

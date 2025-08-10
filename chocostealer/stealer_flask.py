@@ -3,20 +3,15 @@ Pukkelpop Ticket Monitor with Flask Web Interface
 Run with: python stealer_app.py
 """
 
+import logging
 import sqlite3
 from datetime import datetime, timezone
-from flask import (
-    Flask,
-    render_template_string,
-    request,
-    redirect,
-    send_from_directory,
-    url_for,
-    flash,
-    session,
-)
-import logging
-from . import config
+
+from flask import (Flask, flash, redirect, render_template_string, request,
+                   send_from_directory, session, url_for)
+
+from chocostealer import config
+
 from . import stealer_flask_templates as templates
 
 # Logger setup
@@ -274,7 +269,7 @@ def stats():
 if __name__ == "__main__":
     # Start Flask app
     print("Starting Pukkelpop Ticket Monitor...")
-    print("Web interface: http://localhost:5000")
-    print("Statistics: http://localhost:5000/stats")
+    print("Web interface: http://localhost:5001")
+    print("Statistics: http://localhost:5001/stats")
 
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5001, debug=False)

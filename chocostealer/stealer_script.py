@@ -1,15 +1,17 @@
-from http import cookies
 import logging
 import re
+import smtplib
+import sqlite3
 import time
 from datetime import datetime
-from bs4 import BeautifulSoup
-import requests
-import smtplib
 from email.message import EmailMessage
+from http import cookies
+
 import dotenv
+import requests
+from bs4 import BeautifulSoup
 from selenium import webdriver
-import sqlite3
+from selenium.webdriver.chrome.options import Options
 
 from chocostealer import config
 
@@ -212,6 +214,7 @@ def notify_subscribers():
 def monitor_tickets():
     logger.info("Starting ticket monitoring...")
 
+    browsers = []
     while True:
         try:
             logger.info(f"Checking tickets at {datetime.now()}")
@@ -222,6 +225,12 @@ def monitor_tickets():
 
                     response = requests.get(url)
                     response.raise_for_status()
+
+                    options = Options()
+                    options.add_argument('--headless=new')
+                    browser = webdriver.Chrome(options=options)
+
+                    cookies = [{'name': k, 'value': v} for (k, v) in response.cookies.items()]
 
                     soup = BeautifulSoup(response.text, "html.parser")
                     link_elements = soup.find_all(
@@ -234,38 +243,52 @@ def monitor_tickets():
                     ticket_count = len(link_elements)
                     logger.info(f"Found {ticket_count} links for {day} + {camping}")
 
-                    if ticket_count > 0:
+                    found_ticket = False
 
-                        browser = webdriver.Chrome()
-                        cookies = [{'name': c.name, 'value': c.value} for c in response.cookies.items()]
-                        for c in cookies:
-                            browser.add_cookie(c)
+                    # Send notifications for each ticket & add to database
+                    for link_element in link_elements:
+                        
+                        price = link_element.get_text(strip=True)
+                        if float(price[2:]) <= max_price:
+                        
+                            found_ticket = True
+                            link_url = link_element.get("href")
+                            complete_link_url = f"{link_url}?{'&'.join([f'{c["name"]}={c["value"]}' for c in cookies])}"
 
-                        # Send notifications for each ticket & add to database
-                        for link_element in link_elements:
-                            price = link_element.get_text(strip=True)
-                            if float(price[2:]) <= max_price:
-                                link_url = link_element.get("href")
-                                complete_link_url = f"{link_url}?{'&'.join([f'{c["name"]}={c["value"]}' for c in cookies])}"
+                            browser.execute_script(f'''window.open("https://www.google.com","_blank");''')
+                            browser.get(link_url)
+                            for c in cookies:
+                                browser.add_cookie(c)
+                            browser.get(link_url)
 
-                                # req = requests.get(link_url, cookies=cookie)
-                                # if req.status_code == 404:
-                                #     logger.error(f"Failed to fetch {link_url}")
-                                #     continue
+                            # link_url = config.URL_TEMPLATE.format(day=day, camping=camping)
+                            ticket_id = link_element.get("href").split("/")[-3]
+                            tickets.append((ticket_id, day, camping, price, complete_link_url))
+                        
+                    if found_ticket:
+                        logger.info(f"Found tickets for {day} at {max_price} + {camping}")
 
-                                browser.execute_script(f'''window.open("{link_url}","_blank");''')
-                                # browser.get(link_url)
+                        reset_tickets()  # Clear tickets database
+                        add_tickets(tickets) # Add new tickets to the database
+                        notify_subscribers() # Notify subscribers of new tickets
 
-                                # link_url = config.URL_TEMPLATE.format(day=day, camping=camping)
-                                ticket_id = link_element.get("href").split("/")[-3]
-                                tickets.append((ticket_id, day, camping, price, complete_link_url))
+                        # include timestamp
+                        browsers.append((browser, time.time()))
 
-            reset_tickets()  # Clear tickets database
-            add_tickets(tickets) # Add new tickets to the database
-            notify_subscribers() # Notify subscribers of new tickets
-            time.sleep(0.02)  # Check every 10 seconds
+            # reset_tickets()  # Clear tickets database
+            # add_tickets(tickets) # Add new tickets to the database
+            # notify_subscribers() # Notify subscribers of new tickets
+            time.sleep(1.0)  # Check every 10 seconds
+            
+            new_browsers = []
+            for browser, timestamp in browsers:
+                if time.time() - timestamp > 7300:
+                    browser.quit()
+                else:
+                    new_browsers.append((browser, timestamp))
+            browsers = new_browsers
 
-        except Exception as e:
+        except ValueError as e:
             print(f"Monitoring error: {e}")
             time.sleep(60)
 
