@@ -34,6 +34,18 @@ DAYS = {
     "day3": "Sunday",
     "combi": "Combi"
 }
+# DAY_PRICES = {
+#     "day1": 140.0,
+#     "day2": 100.0, 
+#     "day3": 100.0,
+#     "combi": 250.0,
+# }
+DAY_PRICES = {
+    # "day1": 200.0,
+    # "day2": 200.0, 
+    "day3": 107.0,
+    # "combi": 350.0,
+}
 
 CAMPINGS = {
     "n": "No Camping",

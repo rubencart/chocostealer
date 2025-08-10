@@ -1,3 +1,4 @@
+from http import cookies
 import logging
 import re
 import time
@@ -7,9 +8,10 @@ import requests
 import smtplib
 from email.message import EmailMessage
 import dotenv
+from selenium import webdriver
 import sqlite3
 
-from . import config
+from chocostealer import config
 
 # Load environment variables from .env file
 dotenv.load_dotenv()
@@ -214,7 +216,7 @@ def monitor_tickets():
         try:
             logger.info(f"Checking tickets at {datetime.now()}")
             tickets = []
-            for day in config.DAYS.keys():
+            for day, max_price in config.DAY_PRICES.items():
                 for camping in config.CAMPINGS.keys():
                     url = config.URL_TEMPLATE.format(day=day, camping=camping)
 
@@ -233,17 +235,35 @@ def monitor_tickets():
                     logger.info(f"Found {ticket_count} links for {day} + {camping}")
 
                     if ticket_count > 0:
+
+                        browser = webdriver.Chrome()
+                        cookies = [{'name': c.name, 'value': c.value} for c in response.cookies.items()]
+                        for c in cookies:
+                            browser.add_cookie(c)
+
                         # Send notifications for each ticket & add to database
                         for link_element in link_elements:
                             price = link_element.get_text(strip=True)
-                            link_url = config.URL_TEMPLATE.format(day=day, camping=camping)
-                            ticket_id = link_element.get("href").split("/")[-3]
-                            tickets.append((ticket_id, day, camping, price, link_url))
+                            if float(price[2:]) <= max_price:
+                                link_url = link_element.get("href")
+                                complete_link_url = f"{link_url}?{'&'.join([f'{c["name"]}={c["value"]}' for c in cookies])}"
+
+                                # req = requests.get(link_url, cookies=cookie)
+                                # if req.status_code == 404:
+                                #     logger.error(f"Failed to fetch {link_url}")
+                                #     continue
+
+                                browser.execute_script(f'''window.open("{link_url}","_blank");''')
+                                # browser.get(link_url)
+
+                                # link_url = config.URL_TEMPLATE.format(day=day, camping=camping)
+                                ticket_id = link_element.get("href").split("/")[-3]
+                                tickets.append((ticket_id, day, camping, price, complete_link_url))
 
             reset_tickets()  # Clear tickets database
             add_tickets(tickets) # Add new tickets to the database
             notify_subscribers() # Notify subscribers of new tickets
-            time.sleep(10)  # Check every 10 seconds
+            time.sleep(0.02)  # Check every 10 seconds
 
         except Exception as e:
             print(f"Monitoring error: {e}")

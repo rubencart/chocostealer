@@ -51,6 +51,7 @@ Create a `.env` file in the project root:
 EMAIL_USER=your-gmail@gmail.com
 EMAIL_PASSWORD=your-app-password
 SECRET_KEY=your-secret-key-here
+APP_PASSWORD= "Chokri2025"
 ```
 
 > **Note**: Use Gmail App Passwords, not your regular Gmail password. [Learn how to create an App Password](https://support.google.com/accounts/answer/185833).
@@ -67,7 +68,12 @@ poetry shell
 Start the web server with subscriber management:
 
 ```bash
-python chocostealer/stealer_app.py
+python -m chocostealer.stealer_script
+```
+
+And the frontend server:
+```bash
+python -m chocostealer.stealer_flask
 ```
 
 Then visit:
