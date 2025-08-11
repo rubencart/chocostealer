@@ -214,7 +214,12 @@ def notify_subscribers():
 def monitor_tickets():
     logger.info("Starting ticket monitoring...")
 
-    browsers = []
+    windows = []
+    options = Options()
+    options.add_argument('--headless=new')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--no-sandbox')
+    browser = webdriver.Chrome(options=options)
     while True:
         try:
             logger.info(f"Checking tickets at {datetime.now()}")
@@ -225,10 +230,6 @@ def monitor_tickets():
 
                     response = requests.get(url)
                     response.raise_for_status()
-
-                    options = Options()
-                    options.add_argument('--headless=new')
-                    browser = webdriver.Chrome(options=options)
 
                     cookies = [{'name': k, 'value': v} for (k, v) in response.cookies.items()]
 
@@ -255,11 +256,13 @@ def monitor_tickets():
                             link_url = link_element.get("href")
                             complete_link_url = f"{link_url}?{'&'.join([f'{c["name"]}={c["value"]}' for c in cookies])}"
 
-                            browser.execute_script(f'''window.open("https://www.google.com","_blank");''')
+                            # browser.execute_script(f'''window.open("https://www.google.com","_blank");''')
+                            browser.switch_to.new_window('window')
                             browser.get(link_url)
                             for c in cookies:
                                 browser.add_cookie(c)
                             browser.get(link_url)
+                            windows.append((browser.current_window_handle, time.time()))
 
                             # link_url = config.URL_TEMPLATE.format(day=day, camping=camping)
                             ticket_id = link_element.get("href").split("/")[-3]
@@ -273,20 +276,23 @@ def monitor_tickets():
                         notify_subscribers() # Notify subscribers of new tickets
 
                         # include timestamp
-                        browsers.append((browser, time.time()))
+                        # browsers.append((browser, time.time()))
 
             # reset_tickets()  # Clear tickets database
             # add_tickets(tickets) # Add new tickets to the database
             # notify_subscribers() # Notify subscribers of new tickets
             time.sleep(1.0)  # Check every 10 seconds
             
-            new_browsers = []
-            for browser, timestamp in browsers:
-                if time.time() - timestamp > 7300:
-                    browser.quit()
+            new_windows = []
+            for window, timestamp in windows:
+                if time.time() - timestamp > 7201:
+                    original_window = browser.current_window_handle
+                    browser.switch_to.window(window)
+                    browser.close()
+                    browser.switch_to.window(original_window)
                 else:
-                    new_browsers.append((browser, timestamp))
-            browsers = new_browsers
+                    new_windows.append((window, timestamp))
+            windows = new_windows
 
         except ValueError as e:
             print(f"Monitoring error: {e}")
